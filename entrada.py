@@ -1,2 +1,4 @@
-def contains(items: [int]):
-    pass
+def contains(x,y):
+    return x+y
+
+contains(1,2)
