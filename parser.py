@@ -29,13 +29,13 @@ class Parser:
         if self.pos < len(self.tokens):
             self.current_token = self.tokens[self.pos]
         else:
-            self.current_token = Token("EOF", None, -1, -1)
+            self.current_token = Token("EOF", "", self.current_token.line, self.current_token.column)
 
     def parse(self):
         """Inicia el análisis sintáctico."""
         try:
             ast = self.file()
-            print("AST generado exitosamente:", ast)
+            #print("AST generado exitosamente:", ast)
             return ast
         except SyntaxError as e:
             print(e)
@@ -46,7 +46,6 @@ class Parser:
         statements = []
         while self.current_token.type != "EOF":
             statements.append(self.statement())
-            self.advance()
         return {"type": "file", "statements": statements}
 
     def statement(self):
@@ -110,7 +109,6 @@ class Parser:
             self.match("DEDENT")
         else:
             then_branch = [self.statement()]
-
         else_branch = None
         if self.current_token.value == "else":
             self.match("KEYWORD", "else")
@@ -124,9 +122,14 @@ class Parser:
                 self.match("DEDENT")
             else:
                 else_branch = [self.statement()]
+        
+        return {"type": "if_stmt", "condition": condition, "then_branch": then_branch, "else_branch": else_branch}
 
-        return {"type": "if_stmt", "condition": condition, "then": then_branch, "else": else_branch}
-
+    def indentation_error(self):
+        """Lanza un error de sintaxis específico de indentación."""
+        error_msg = f"<{self.current_token.line},{self.current_token.column}> Error sintactico: falla de indentacion"
+        raise SyntaxError(error_msg)
+    
     def parameters(self):
         """Manejo de parámetros de función, incluyendo anotaciones de tipo."""
         params = []
@@ -161,12 +164,6 @@ class Parser:
         """Regla para `pass`."""
         self.match("KEYWORD", "pass")
         return {"type": "pass_stmt"}
-
-    def return_stmt(self):
-        """Regla para `return`."""
-        self.match("KEYWORD", "return")
-        expr = self.expression()
-        return {"type": "return_stmt", "expression": expr}
 
     def match(self, expected_type, expected_value=None):
         """Verifica y consume tokens, lanza error si no coincide."""
@@ -205,7 +202,7 @@ class Parser:
             right = self.term()
             node = {"type": "binop", "operator": op, "left": node, "right": right}
         return node
-
+    
     def term(self):
         """Manejo de términos en una expresión."""
         node = self.factor()
@@ -215,7 +212,7 @@ class Parser:
             right = self.factor()
             node = {"type": "binop", "operator": op, "left": node, "right": right}
         return node
-
+    
     def factor(self):
         """Manejo de factores dentro de una expresión."""
         if self.current_token.type == "PLUS":
@@ -246,7 +243,7 @@ class Parser:
             return node
         else:
             self.syntax_error("expression")
-
+    
     def argument_list(self):
         """Manejo de listas de argumentos en llamadas a función."""
         args = []
@@ -255,4 +252,10 @@ class Parser:
             while self.current_token.type == "COMMA":
                 self.match("COMMA")
                 args.append(self.expression())
-        return args
+        return args    
+    
+    def return_stmt(self):
+        """Regla para `return`."""
+        self.match("KEYWORD", "return")
+        expr = self.expression()
+        return {"type": "return_stmt", "expression": expr}

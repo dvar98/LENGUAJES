@@ -80,16 +80,19 @@ def parse_code(filename):
     # Paso 1: Análisis léxico
     lexer = Lexer(input_code)
     tokens = lexer.generate_tokens()
-    print("Tokens generados:", tokens)
+    #print("Tokens generados:", tokens)
 
     # Paso 2: Análisis sintáctico en Python
     try:
         parser = Parser(tokens)
         ast = parser.parse()
-        print("AST generado en Python:", ast)
+        if ast is not None:
+            # print("AST generado exitosamente:", ast)
+            print("El análisis sintáctico ha finalizado exitosamente.")
+        else:
+            print("Error en el análisis sintáctico.")
     except SyntaxError as e:
-        print(e)  # Mostrar mensaje de error
-        return
+        print(e)
 
 '''
     # Paso 3: Análisis en C (si es necesario)
