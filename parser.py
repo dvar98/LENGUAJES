@@ -29,20 +29,19 @@ class Parser:
         if self.pos < len(self.tokens):
             self.current_token = self.tokens[self.pos]
         else:
-            self.current_token = Token("EOF", "", self.current_token.line, self.current_token.column)
+            self.current_token = Token("EOF", None, self.current_token.line, self.current_token.column)
 
     def parse(self):
         """Inicia el análisis sintáctico."""
         try:
             ast = self.file()
-            #print("AST generado exitosamente:", ast)
             return ast
         except SyntaxError as e:
             print(e)
             return None
 
     def file(self):
-        """Regla de inicio `file`."""
+        """Regla de inicio file."""
         statements = []
         while self.current_token.type != "EOF":
             statements.append(self.statement())
@@ -58,8 +57,11 @@ class Parser:
             return self.pass_stmt()
         elif self.current_token.type == "KEYWORD" and self.current_token.value == "return":
             return self.return_stmt()
+        elif self.current_token.type == "NEWLINE":
+            self.match("NEWLINE")
+            return {"type": "empty_stmt"}
         else:
-            return self.expression()
+            self.syntax_error("statement")
 
     def function_def(self):
         """Definición de función con manejo de indentación."""
@@ -94,12 +96,12 @@ class Parser:
             return self.for_stmt()
 
     def if_stmt(self):
-        """Declaración `if` con manejo de indentación."""
+        """Declaración if con manejo de indentación."""
         self.match("KEYWORD", "if")
         condition = self.expression()
         self.match("COLON")
         
-        # Verificar indentación después de `if`:
+        # Verificar indentación después de if:
         if self.current_token.type == "NEWLINE":
             self.match("NEWLINE")
             if self.current_token.type != "INDENT":
@@ -161,7 +163,7 @@ class Parser:
             return {"type": type_name}
 
     def pass_stmt(self):
-        """Regla para `pass`."""
+        """Regla para pass."""
         self.match("KEYWORD", "pass")
         return {"type": "pass_stmt"}
 
@@ -180,27 +182,20 @@ class Parser:
         error_msg = f"<{self.current_token.line},{self.current_token.column}> Error sintactico: se encontro: '{found}'; se esperaba: '{expected}'."
         raise SyntaxError(error_msg)
 
-    def indentation_error(self):
-        """Lanza un error de sintaxis específico de indentación."""
-        error_msg = f"<{self.current_token.line},{self.current_token.column}> Error sintactico: falla de indentacion"
-        raise SyntaxError(error_msg)
-
     def block(self):
-        """Manejo de un bloque de código (series de sentencias)."""
-        statements = []
-        while self.current_token.type != "DEDENT" and self.current_token.type != "EOF":
-            statements.append(self.statement())
-            self.advance()
-        return {"type": "block", "statements": statements}
+            """Manejo de un bloque de código (series de sentencias)."""
+            statements = []
+            while self.current_token.type != "DEDENT" and self.current_token.type != "EOF":
+                statements.append(self.statement())
+            return {"type": "block", "statements": statements}
 
     def expression(self):
         """Manejo de expresiones con operadores."""
         node = self.term()
         while self.current_token.type in ("PLUS", "MINUS"):
-            op = self.current_token.type
+            token = self.current_token
             self.advance()
-            right = self.term()
-            node = {"type": "binop", "operator": op, "left": node, "right": right}
+            node = {"type": "binop", "left": node, "op": token.value, "right": self.term()}
         return node
     
     def term(self):
@@ -255,7 +250,13 @@ class Parser:
         return args    
     
     def return_stmt(self):
-        """Regla para `return`."""
+        """Regla para return."""
         self.match("KEYWORD", "return")
-        expr = self.expression()
-        return {"type": "return_stmt", "expression": expr}
+        if self.current_token.type == "NEWLINE":
+            self.advance()
+            return {"type": "return_stmt", "expression": None}
+        elif self.current_token.type not in ("EOF", "DEDENT"):
+            expr = self.expression()
+            return {"type": "return_stmt", "expression": expr}
+        else:
+            return {"type": "return_stmt", "expression": None}
